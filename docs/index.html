@@ -88,6 +88,17 @@
   svg { width: 100%; height: auto; display: block; }
   @media (max-width: 480px) { .numeros b { font-size: 18px; } .numeros { gap: 8px; } }
   [hidden] { display: none !important; }
+  .instalar { background: var(--cartao); border: 2px solid var(--destaque); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .instalar-topo { display: flex; gap: 12px; align-items: center; }
+  .instalar-topo img { border-radius: 12px; flex: none; }
+  .instalar-topo b { display: block; font: 600 17px/1.3 var(--fonte-titulo); }
+  .instalar-topo span { display: block; font-size: 14px; color: var(--suave); margin-top: 2px; }
+  .instalar ol { margin: 14px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+  .instalar ol svg { width: 20px; height: 20px; display: inline-block; vertical-align: -4px; color: var(--destaque); }
+  .instalar .endereco { font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; user-select: all; }
+  .instalar-botoes { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+  .instalar-botoes .acao { flex: 1; padding: 12px 14px; font-size: 16px; }
+  button.link.neutro { color: var(--suave); white-space: nowrap; }
   body { margin: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
   button.sec { font-family: inherit; }
   #camera { width: 100%; max-height: 320px; border-radius: 10px; background: #000; display: block; }
@@ -97,6 +108,20 @@
 <main>
   <h1>Calorias e Macros <span class="autor">By João Nerd</span></h1>
   <p id="estado"></p>
+  <div id="painelInstalar" class="instalar" hidden>
+    <div class="instalar-topo">
+      <img src="icone-192.png" alt="" width="52" height="52">
+      <div>
+        <b>Instale o app no seu aparelho</b>
+        <span>Fica na tela inicial, abre em tela cheia e funciona sem internet. Grátis, sem loja.</span>
+      </div>
+    </div>
+    <ol id="passosInstalar" hidden></ol>
+    <div class="instalar-botoes">
+      <button type="button" class="acao" id="btnInstalarTopo">Instalar app</button>
+      <button type="button" class="link neutro" id="btnAgoraNao">Agora não</button>
+    </div>
+  </div>
   <nav>
     <button id="abaMeta" data-aba="meta" class="ativo">Minha meta</button>
     <button id="abaDiario" data-aba="diario">Diário</button>
@@ -1372,40 +1397,86 @@ $("arqBackup").addEventListener("change", async (e) => {
 
 // ---------- Instalação ----------
 // Este tipo de app se instala pelo próprio navegador: não tem loja nem arquivo para baixar.
+// O painel no topo da página oferece a instalação logo de cara para quem ainda não instalou.
 const instalado = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 const agente = navigator.userAgent;
 const ehApple = /iphone|ipad|ipod/i.test(agente) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const ehAndroid = /android/i.test(agente);
 const ehSafari = ehApple && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(agente);
-const dentroDeOutroApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Electron/i.test(agente);
+const dentroDeOutroApp = ["FBAN", "FBAV", "Instagram", "WhatsApp", "Line/", "; wv)", "Electron"].some((t) => agente.includes(t));
+const DISPENSADO = "calorias-instalar-dispensado";
+
+// Desenhos pequenos usados no passo a passo
+const ICONE = {
+  compartilhar: "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 15V3m0 0L8 7m4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+  adicionar: "<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='4' y='4' width='16' height='16' rx='3' fill='none' stroke='currentColor' stroke-width='2'/><path d='M12 8v8M8 12h8' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>",
+  pontos: "<svg viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='5' r='2' fill='currentColor'/><circle cx='12' cy='12' r='2' fill='currentColor'/><circle cx='12' cy='19' r='2' fill='currentColor'/></svg>",
+  instalar: "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 4v11m0 0-4-4m4 4 4-4M5 20h14' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+};
+const endereco = location.origin + location.pathname;
+const copiarEndereco = "Copie o endereço: <span class='endereco'>" + limpo(endereco) + "</span> <button type='button' class='link' data-copiar='1'>copiar</button>";
 
 // Passo a passo conforme o aparelho e o navegador em que a página está aberta
 function passosInstalar() {
-  if (dentroDeOutroApp) return "Esta página está aberta dentro de outro aplicativo, que não deixa instalar. Copie o endereço " + location.href +
-    " e abra no Chrome (Android) ou no Safari (iPhone).";
-  if (ehApple && !ehSafari) return "No iPhone a instalação só funciona pelo Safari. Abra " + location.href +
-    " no Safari, toque em Compartilhar (o quadrado com a seta para cima) e depois em “Adicionar à Tela de Início”.";
-  if (ehApple) return "Toque em Compartilhar (o quadrado com a seta para cima, na barra do Safari), role a lista e toque em “Adicionar à Tela de Início”.";
-  if (ehAndroid) return "Toque nos três pontos no canto de cima do Chrome, escolha “Adicionar à tela inicial” e depois “Instalar”. " +
-    "Não use o download (a seta para baixo): ele só salva uma cópia da página.";
-  return "No computador: no Chrome ou no Edge, clique no ícone de instalar no fim da barra de endereço (um monitor com uma seta), " +
-    "ou abra o menu de três pontos e escolha “Transmitir, salvar e compartilhar” e “Instalar página como app”.";
+  const iphone = [
+    "Toque em " + ICONE.compartilhar + " <b>Compartilhar</b>, na barra do Safari.",
+    "Role a lista e toque em " + ICONE.adicionar + " <b>Adicionar à Tela de Início</b>.",
+    "Toque em <b>Adicionar</b>. O ícone verde aparece na tela inicial."
+  ];
+  const android = [
+    "Toque em " + ICONE.pontos + " no canto de cima do Chrome.",
+    "Toque em " + ICONE.instalar + " <b>Adicionar à tela inicial</b>.",
+    "Toque em <b>Instalar</b>. O ícone verde aparece na tela inicial."
+  ];
+  if (dentroDeOutroApp) return [copiarEndereco, "Abra o <b>Chrome</b> (Android) ou o <b>Safari</b> (iPhone) e cole o endereço.", "Toque em <b>Instalar app</b> de novo, já no navegador."];
+  if (ehApple && !ehSafari) return ["No iPhone a instalação só funciona pelo Safari. " + copiarEndereco, "Abra o <b>Safari</b> e cole o endereço."].concat(iphone);
+  if (ehApple) return iphone;
+  if (ehAndroid) return android;
+  return [
+    "No Chrome ou no Edge, clique no ícone " + ICONE.instalar + " no fim da barra de endereço.",
+    "Clique em <b>Instalar</b>. O app abre em janela própria e ganha atalho."
+  ];
 }
 
-let convite = null;
-if (instalado) {
-  $("comoInstalar").textContent = "App instalado neste aparelho.";
-} else {
-  $("comoInstalar").textContent = "Este app se instala pelo navegador, sem loja e sem arquivo para baixar. Toque em “Instalar o app”.";
-  $("btnInstalar").hidden = false;
+function mostrarPassos() {
+  $("passosInstalar").innerHTML = passosInstalar().map((p) => "<li>" + p + "</li>").join("");
+  $("passosInstalar").hidden = false;
 }
-window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); convite = e; });
-$("btnInstalar").addEventListener("click", async () => {
-  if (!convite) { $("comoInstalar").textContent = passosInstalar(); return; } // o navegador não ofereceu a instalação direta
+
+let convite = null; // instalação em um toque, quando o navegador oferece (Chrome no Android e no computador)
+async function instalar() {
+  $("painelInstalar").hidden = false;
+  if (!convite) { mostrarPassos(); $("painelInstalar").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   convite.prompt();
   const escolha = await convite.userChoice;
   convite = null;
-  if (escolha && escolha.outcome === "accepted") $("btnInstalar").hidden = true;
+  if (escolha && escolha.outcome === "accepted") { $("painelInstalar").hidden = true; $("btnInstalar").hidden = true; }
+  else mostrarPassos();
+}
+
+let dispensado = false;
+try { dispensado = localStorage.getItem(DISPENSADO) === "1"; } catch (e) {}
+if (instalado) {
+  $("comoInstalar").textContent = "App instalado neste aparelho.";
+} else {
+  $("comoInstalar").textContent = "Este app se instala pelo navegador, sem loja e sem arquivo para baixar.";
+  $("btnInstalar").hidden = false;
+  if (!dispensado) {
+    $("painelInstalar").hidden = false;
+    if (ehApple || dentroDeOutroApp) mostrarPassos(); // no iPhone não existe instalação em um toque: mostra logo o caminho
+  }
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); convite = e; $("passosInstalar").hidden = true; });
+$("btnInstalarTopo").addEventListener("click", instalar);
+$("btnInstalar").addEventListener("click", instalar);
+$("btnAgoraNao").addEventListener("click", () => {
+  $("painelInstalar").hidden = true;
+  try { localStorage.setItem(DISPENSADO, "1"); } catch (e) {}
+});
+$("passosInstalar").addEventListener("click", async (e) => {
+  if (!e.target.dataset.copiar) return;
+  try { await navigator.clipboard.writeText(endereco); e.target.textContent = "copiado"; }
+  catch (erro) { e.target.textContent = "selecione e copie o endereço"; }
 });
 window.addEventListener("appinstalled", () => { $("comoInstalar").textContent = "App instalado neste aparelho."; $("btnInstalar").hidden = true; });
 
