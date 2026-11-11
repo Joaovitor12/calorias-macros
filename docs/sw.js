@@ -1,6 +1,6 @@
 // Guarda os arquivos do app no aparelho para ele abrir sem internet.
 // Com internet, busca sempre a versão mais nova; sem internet, usa a cópia guardada.
-const CACHE = "calorias-202611111208";
+const CACHE = "calorias-202611111213";
 const ARQUIVOS = ["./", "index.html", "manifest.webmanifest", "zxing.min.js", "icone-192.png", "icone-512.png", "icone-180.png"];
 
 self.addEventListener("install", (e) => {

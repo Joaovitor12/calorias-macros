@@ -1371,20 +1371,41 @@ $("arqBackup").addEventListener("change", async (e) => {
 });
 
 // ---------- Instalação ----------
+// Este tipo de app se instala pelo próprio navegador: não tem loja nem arquivo para baixar.
 const instalado = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-const ehApple = /iphone|ipad|ipod/i.test(navigator.userAgent);
-$("comoInstalar").textContent = instalado
-  ? "App instalado neste aparelho."
-  : ehApple
-    ? "Para instalar no iPhone ou iPad: abra esta página no Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”."
-    : "Para instalar: toque em “Instalar o app” quando o botão aparecer, ou abra o menu do navegador e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.";
+const agente = navigator.userAgent;
+const ehApple = /iphone|ipad|ipod/i.test(agente) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const ehAndroid = /android/i.test(agente);
+const ehSafari = ehApple && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(agente);
+const dentroDeOutroApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|Electron/i.test(agente);
+
+// Passo a passo conforme o aparelho e o navegador em que a página está aberta
+function passosInstalar() {
+  if (dentroDeOutroApp) return "Esta página está aberta dentro de outro aplicativo, que não deixa instalar. Copie o endereço " + location.href +
+    " e abra no Chrome (Android) ou no Safari (iPhone).";
+  if (ehApple && !ehSafari) return "No iPhone a instalação só funciona pelo Safari. Abra " + location.href +
+    " no Safari, toque em Compartilhar (o quadrado com a seta para cima) e depois em “Adicionar à Tela de Início”.";
+  if (ehApple) return "Toque em Compartilhar (o quadrado com a seta para cima, na barra do Safari), role a lista e toque em “Adicionar à Tela de Início”.";
+  if (ehAndroid) return "Toque nos três pontos no canto de cima do Chrome, escolha “Adicionar à tela inicial” e depois “Instalar”. " +
+    "Não use o download (a seta para baixo): ele só salva uma cópia da página.";
+  return "No computador: no Chrome ou no Edge, clique no ícone de instalar no fim da barra de endereço (um monitor com uma seta), " +
+    "ou abra o menu de três pontos e escolha “Transmitir, salvar e compartilhar” e “Instalar página como app”.";
+}
+
 let convite = null;
-window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); convite = e; $("btnInstalar").hidden = false; });
+if (instalado) {
+  $("comoInstalar").textContent = "App instalado neste aparelho.";
+} else {
+  $("comoInstalar").textContent = "Este app se instala pelo navegador, sem loja e sem arquivo para baixar. Toque em “Instalar o app”.";
+  $("btnInstalar").hidden = false;
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); convite = e; });
 $("btnInstalar").addEventListener("click", async () => {
-  if (!convite) return;
+  if (!convite) { $("comoInstalar").textContent = passosInstalar(); return; } // o navegador não ofereceu a instalação direta
   convite.prompt();
-  await convite.userChoice;
-  convite = null; $("btnInstalar").hidden = true;
+  const escolha = await convite.userChoice;
+  convite = null;
+  if (escolha && escolha.outcome === "accepted") $("btnInstalar").hidden = true;
 });
 window.addEventListener("appinstalled", () => { $("comoInstalar").textContent = "App instalado neste aparelho."; $("btnInstalar").hidden = true; });
 
