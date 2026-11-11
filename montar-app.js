@@ -323,7 +323,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return; // Open Food Facts e Google passam direto
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request.url, { cache: "no-cache" }) // sempre confere se há versão nova no servidor
       .then((resposta) => {
         if (resposta.ok) { const copia = resposta.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); }
         return resposta;
